@@ -1,0 +1,1050 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="theme-color" content="#1D9E75">
+<title>마인디움 기분기록지</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;700&display=swap" rel="stylesheet">
+
+<script type="module">
+import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+         signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
+import { getFirestore, doc, setDoc, getDoc, collection,
+         getDocs, query, orderBy, where, Timestamp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyAoK9J82DhWT1tfu5DGbNKZwOK4kdG7UGg",
+  authDomain: "mindium-mood-chart.firebaseapp.com",
+  projectId: "mindium-mood-chart",
+  storageBucket: "mindium-mood-chart.firebasestorage.app",
+  messagingSenderId: "456988263408",
+  appId: "1:456988263408:web:4909bba4147fc45e47d335"
+};
+const app = initializeApp(firebaseConfig);
+const auth = getAuth(app);
+const db = getFirestore(app);
+window._fb = { auth, db, signInWithEmailAndPassword, createUserWithEmailAndPassword,
+  signOut, onAuthStateChanged, doc, setDoc, getDoc, collection, getDocs,
+  query, orderBy, where, Timestamp };
+</script>
+
+<style>
+:root {
+  --g:#1D9E75; --gd:#0F6E56; --gl:#E1F5EE;
+  --tx:#1a1a1a; --tx2:#555; --tx3:#999;
+  --bd:#e5e5e5; --bg:#f7f7f5;
+  --sh:0 2px 16px rgba(0,0,0,.08);
+  /* 기분 색상 */
+  --m4:#F6BA92; --m3:#F9D1B9; --m2:#FCE7D8; --m1:#FEF5F0;
+  --n1:#ECF0F8; --n2:#D6E0F2; --n3:#B6C8E8; --n4:#9AB2DE;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--tx);}
+body{display:flex;flex-direction:column;}
+
+.screen{display:none;flex:1;flex-direction:column;height:100%;overflow:hidden;}
+.screen.active{display:flex;}
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+
+/* 상단바 */
+.topbar{background:var(--g);padding:env(safe-area-inset-top,0) 0 0;flex-shrink:0;}
+.topbar-inner{display:flex;align-items:center;justify-content:space-between;padding:14px 20px;height:56px;}
+.topbar h2{font-size:16px;font-weight:700;color:#fff;}
+.topbar-btn{background:rgba(255,255,255,.2);border:none;color:#fff;border-radius:8px;padding:6px 12px;font-size:13px;cursor:pointer;font-family:inherit;}
+
+/* 로그인 */
+#loginScreen{background:#fff;justify-content:center;}
+.login-box{padding:48px 28px;display:flex;flex-direction:column;}
+.login-logo{display:flex;align-items:center;gap:10px;margin-bottom:40px;}
+.login-dot{width:38px;height:38px;border-radius:11px;background:var(--g);display:flex;align-items:center;justify-content:center;}
+.login-dot svg{width:22px;height:22px;}
+.login-logo h1{font-size:22px;font-weight:700;color:var(--gd);}
+.login-logo p{font-size:13px;color:var(--tx3);margin-top:2px;}
+.fld{margin-bottom:14px;}
+.fld label{font-size:12px;font-weight:500;color:var(--tx2);margin-bottom:6px;display:block;}
+.fld input{width:100%;border:1.5px solid var(--bd);border-radius:10px;padding:13px 14px;font-size:15px;font-family:inherit;outline:none;transition:border .2s;}
+.fld input:focus{border-color:var(--g);}
+.login-btn{width:100%;background:var(--g);color:#fff;border:none;border-radius:12px;padding:15px;font-size:16px;font-weight:700;cursor:pointer;margin-top:8px;font-family:inherit;}
+.login-toggle{text-align:center;margin-top:16px;font-size:13px;color:var(--tx3);}
+.login-toggle a{color:var(--g);font-weight:500;cursor:pointer;}
+.err{color:#e04444;font-size:13px;text-align:center;margin-top:8px;min-height:20px;}
+
+/* 홈 */
+.home-hdr{background:var(--g);padding:env(safe-area-inset-top,0) 20px 24px;flex-shrink:0;}
+.home-hdr-inner{padding-top:14px;}
+.greeting{font-size:13px;color:rgba(255,255,255,.75);margin-bottom:4px;}
+.uname{font-size:22px;font-weight:700;color:#fff;}
+.udate{font-size:13px;color:rgba(255,255,255,.65);margin-top:4px;}
+.card{background:#fff;border-radius:16px;box-shadow:var(--sh);padding:20px;margin-bottom:14px;}
+.card h3{font-size:14px;font-weight:700;margin-bottom:12px;}
+.today-row{display:flex;align-items:center;gap:12px;padding:12px 0;}
+.today-dot{width:12px;height:12px;border-radius:50%;flex-shrink:0;}
+.today-dot.done{background:var(--g);}
+.today-dot.todo{background:#ddd;}
+.today-lbl{font-size:15px;font-weight:500;}
+.today-sub{font-size:13px;color:var(--tx3);margin-top:2px;}
+.rec-btn{width:100%;background:var(--g);color:#fff;border:none;border-radius:12px;padding:16px;font-size:16px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;}
+
+/* 홈 미니 기분기록지 */
+.mini-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:0 -4px;}
+.mini-tbl{border-collapse:collapse;font-size:9px;white-space:nowrap;table-layout:fixed;}
+.mini-tbl td{border:1px solid #ddd;text-align:center;padding:2px 0;height:18px;width:24px;min-width:24px;}
+/* 라벨 열: cat(세로) + 항목명 */
+.mini-tbl td.lhcat{background:#7F7F7F;color:#fff;font-size:7.5px;font-weight:600;text-align:center;vertical-align:middle;width:14px;min-width:14px;padding:0;}
+.mini-tbl td.lh2{background:#B4C6E7;color:#000;font-size:7.5px;text-align:left;padding-left:3px;white-space:nowrap;width:52px;min-width:52px;}
+.mini-tbl td.lh2.jeong{background:#E2EFD9;}
+.mini-tbl td.lh2.saeng{background:#DEEAF6;}
+.mini-tbl td.lh2.su{background:#FBE4D5;}
+.mini-tbl td.lh2.check{background:#FAF6D6;}
+/* 날짜 헤더 */
+.mini-tbl td.lh-hdr{background:#7F7F7F;color:#fff;font-size:8px;font-weight:600;text-align:center;vertical-align:middle;}
+/* 빈 슬롯 */
+.mini-tbl td.empty{background:#f0f0ee !important;}
+/* 기분 행 배경 — td.data 에 적용 */
+/* 기분 행 색상은 JS에서 inline style로 직접 적용 */
+.mini-tbl td.data.empty{background:#f0f0ee !important;}
+.mv{font-weight:700;color:#000;font-size:9px;}
+/* 생활사건 기술란 */
+.evt-rows td{font-size:9px;text-align:left;padding:3px 6px;background:#fff;}
+
+/* 입력 */
+#inputScreen{background:var(--bg);}
+.prog{height:4px;background:#e0e0e0;flex-shrink:0;}
+.prog-bar{height:100%;background:var(--g);transition:width .4s cubic-bezier(.4,0,.2,1);}
+.step-body{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:28px 20px 100px;}
+.step-tag{font-size:11px;font-weight:700;letter-spacing:.08em;color:var(--g);text-transform:uppercase;margin-bottom:8px;}
+.step-q{font-size:22px;font-weight:700;line-height:1.35;margin-bottom:8px;}
+.step-sub{font-size:14px;color:var(--tx2);line-height:1.6;margin-bottom:24px;}
+.nav-bar{position:fixed;bottom:0;left:0;right:0;background:rgba(247,247,245,.93);backdrop-filter:blur(16px);padding:12px 20px;padding-bottom:max(12px,env(safe-area-inset-bottom));display:flex;gap:10px;border-top:1px solid var(--bd);z-index:100;}
+.nbtn{flex:1;padding:14px;border-radius:12px;border:none;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;}
+.nbtn.back{background:#f0f0f0;color:var(--tx2);}
+.nbtn.next{background:var(--g);color:#fff;}
+.nbtn:disabled{background:#ccc;color:#fff;}
+
+/* 기분 선택 */
+.mood-list{display:flex;flex-direction:column;gap:8px;}
+.mood-btn{display:flex;align-items:center;gap:12px;padding:13px 16px;border-radius:12px;border:2px solid transparent;background:#fff;cursor:pointer;font-family:inherit;width:100%;transition:all .15s;}
+.mood-btn.sel{border-color:var(--g);transform:translateX(4px);}
+.mood-swatch{width:12px;height:36px;border-radius:3px;flex-shrink:0;}
+.mood-name{font-size:14px;font-weight:600;text-align:left;}
+.mood-desc{font-size:11px;color:var(--tx3);text-align:left;margin-top:2px;}
+
+/* 슬라이더 */
+.sl-wrap{padding:16px 0;}
+.sl-val{font-size:52px;font-weight:700;text-align:center;margin-bottom:6px;}
+.sl-desc{font-size:14px;text-align:center;color:var(--tx2);margin-bottom:24px;min-height:20px;}
+.slider{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:3px;outline:none;cursor:pointer;}
+.slider::-webkit-slider-thumb{-webkit-appearance:none;width:28px;height:28px;border-radius:50%;background:var(--g);cursor:pointer;box-shadow:0 2px 8px rgba(29,158,117,.4);}
+.sl-labels{display:flex;justify-content:space-between;margin-top:8px;font-size:11px;color:var(--tx3);}
+
+/* 예/아니오 */
+.yn-row{display:flex;gap:10px;margin-bottom:10px;}
+.yn-btn{flex:1;padding:16px;border-radius:12px;border:2px solid var(--bd);background:#fff;font-size:16px;font-weight:600;cursor:pointer;font-family:inherit;}
+.yn-btn.yes.sel{border-color:var(--g);background:var(--gl);color:var(--gd);}
+.yn-btn.no.sel{border-color:#ddd;background:#f5f5f5;color:var(--tx2);}
+
+/* 수면 시계 */
+.clocks-row{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:14px;}
+.clock-card{background:#fff;border-radius:12px;border:1.5px solid var(--bd);padding:14px;text-align:center;}
+.clock-lbl{font-size:12px;font-weight:600;color:var(--tx2);margin-bottom:8px;}
+.clock-svg{width:100%;max-width:130px;cursor:grab;touch-action:none;user-select:none;}
+.clock-time{font-size:20px;font-weight:700;color:var(--gd);margin-top:6px;}
+.sleep-field{background:#fff;border-radius:12px;border:1.5px solid var(--bd);padding:14px 16px;margin-bottom:10px;}
+.sleep-lbl{font-size:12px;font-weight:600;color:var(--tx2);display:block;margin-bottom:8px;}
+.sleep-total{background:var(--gl);border-radius:12px;padding:14px 16px;text-align:center;}
+.sleep-total-lbl{font-size:12px;color:var(--gd);font-weight:600;margin-bottom:4px;}
+.sleep-total-val{font-size:34px;font-weight:700;color:var(--gd);}
+
+/* 체크 리스트 */
+.chk-list{display:flex;flex-direction:column;gap:8px;}
+.chk-item{display:flex;align-items:center;gap:14px;padding:14px 16px;background:#fff;border-radius:12px;border:2px solid var(--bd);cursor:pointer;}
+.chk-item.on{border-color:var(--g);background:var(--gl);}
+.chk-box{width:22px;height:22px;border-radius:6px;border:2px solid var(--bd);flex-shrink:0;display:flex;align-items:center;justify-content:center;}
+.chk-item.on .chk-box{background:var(--g);border-color:var(--g);}
+.chk-box svg{width:13px;height:13px;stroke:#fff;display:none;}
+.chk-item.on .chk-box svg{display:block;}
+
+/* 음주 */
+.drink-row{display:flex;align-items:center;gap:14px;padding:16px;background:#fff;border-radius:12px;border:1.5px solid var(--bd);margin-bottom:12px;}
+.drink-btn{width:38px;height:38px;border-radius:50%;border:1.5px solid var(--bd);background:#fff;font-size:22px;cursor:pointer;line-height:1;display:flex;align-items:center;justify-content:center;}
+.drink-val{font-size:28px;font-weight:700;color:var(--g);min-width:36px;text-align:center;}
+
+/* 생활사건 */
+.evt-type-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;}
+.evt-type-btn{padding:8px 14px;border-radius:20px;border:1.5px solid var(--bd);background:#fff;font-size:13px;cursor:pointer;font-family:inherit;}
+.evt-type-btn.sel{border-color:var(--g);background:var(--gl);color:var(--gd);}
+.evt-title{width:100%;border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;font-size:15px;font-family:inherit;outline:none;margin-bottom:10px;}
+.evt-title:focus{border-color:var(--g);}
+.evt-body{width:100%;border:1.5px solid var(--bd);border-radius:10px;padding:12px 14px;font-size:14px;font-family:inherit;resize:none;outline:none;height:130px;line-height:1.6;}
+.evt-body:focus{border-color:var(--g);}
+
+/* 완료 */
+.done-wrap{text-align:center;padding:48px 0;}
+.done-icon{width:80px;height:80px;border-radius:50%;background:var(--gl);margin:0 auto 20px;display:flex;align-items:center;justify-content:center;animation:pop .5s cubic-bezier(.175,.885,.32,1.275);}
+@keyframes pop{from{transform:scale(0);opacity:0}to{transform:scale(1);opacity:1}}
+.done-title{font-size:24px;font-weight:700;margin-bottom:8px;}
+.done-sub{font-size:15px;color:var(--tx2);line-height:1.7;}
+
+/* 달력 */
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-bottom:16px;}
+.cal-head{text-align:center;font-size:11px;font-weight:600;color:var(--tx3);padding:4px 0;}
+.cal-cell{aspect-ratio:1;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;border:1.5px solid transparent;font-size:13px;}
+.cal-cell.today{border-color:var(--g);}
+.cal-cell.empty{cursor:default;}
+.detail-card{background:#fff;border-radius:16px;box-shadow:var(--sh);padding:18px;}
+.detail-card h4{font-size:15px;font-weight:700;margin-bottom:14px;}
+.drow{display:flex;justify-content:space-between;padding:8px 0;border-bottom:1px solid #f0f0f0;font-size:14px;}
+.drow:last-child{border-bottom:none;}
+.drow-lbl{color:var(--tx2);}
+.drow-val{font-weight:600;}
+
+/* 의사 대시보드 */
+.pt-item{background:#fff;border-radius:12px;padding:16px;display:flex;align-items:center;gap:14px;box-shadow:var(--sh);cursor:pointer;border:2px solid transparent;margin-bottom:8px;}
+.pt-item:hover{border-color:var(--g);}
+.pt-ava{width:44px;height:44px;border-radius:12px;background:var(--gl);display:flex;align-items:center;justify-content:center;font-size:18px;font-weight:700;color:var(--gd);flex-shrink:0;}
+.pt-info h4{font-size:15px;font-weight:600;margin-bottom:3px;}
+.pt-info p{font-size:13px;color:var(--tx3);}
+.pt-badge{margin-left:auto;font-size:11px;font-weight:600;padding:4px 8px;border-radius:6px;background:var(--gl);color:var(--gd);}
+.period-row{display:flex;gap:8px;margin-bottom:14px;}
+.period-btn{flex:1;padding:10px;border-radius:8px;border:1.5px solid var(--bd);background:#fff;font-size:13px;font-weight:600;cursor:pointer;font-family:inherit;}
+.period-btn.active{border-color:var(--g);background:var(--gl);color:var(--gd);}
+.chart-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.mood-tbl{border-collapse:collapse;font-size:10px;white-space:nowrap;background:#fff;}
+.mood-tbl th{background:#7F7F7F;color:#fff;padding:4px 3px;text-align:center;border:1px solid #999;}
+.mood-tbl th.lh{text-align:left;padding-left:5px;}
+.mood-tbl td{padding:3px 2px;text-align:center;border:1px solid #ddd;}
+.mood-tbl td.lh{text-align:left;padding-left:5px;background:#B4C6E7;font-size:9.5px;white-space:nowrap;}
+.mood-tbl tr.rm4 td{background:#F6BA92!important;} .mood-tbl tr.rm3 td{background:#F9D1B9!important;}
+.mood-tbl tr.rm2 td{background:#FCE7D8!important;} .mood-tbl tr.rm1 td{background:#FEF5F0!important;}
+.mood-tbl tr.rz  td{background:#fff!important;}
+.mood-tbl tr.rn1 td{background:#ECF0F8!important;} .mood-tbl tr.rn2 td{background:#D6E0F2!important;}
+.mood-tbl tr.rn3 td{background:#B6C8E8!important;} .mood-tbl tr.rn4 td{background:#9AB2DE!important;}
+.mood-tbl tr.rm4 td.lh,.mood-tbl tr.rm3 td.lh,.mood-tbl tr.rm2 td.lh,.mood-tbl tr.rm1 td.lh,
+.mood-tbl tr.rz td.lh,.mood-tbl tr.rn1 td.lh,.mood-tbl tr.rn2 td.lh,.mood-tbl tr.rn3 td.lh,.mood-tbl tr.rn4 td.lh{background:#B4C6E7!important;}
+.tvc{color:#000;font-weight:700;}
+
+/* 로딩/토스트 */
+.loading{display:flex;align-items:center;justify-content:center;height:100%;flex-direction:column;gap:12px;}
+.spinner{width:36px;height:36px;border:3px solid var(--gl);border-top-color:var(--g);border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg)}}
+.toast{position:fixed;bottom:80px;left:50%;transform:translateX(-50%) translateY(20px);background:#222;color:#fff;border-radius:10px;padding:12px 20px;font-size:14px;opacity:0;transition:all .3s;pointer-events:none;white-space:nowrap;z-index:999;}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+</style>
+</head>
+<body>
+
+<!-- 로딩 -->
+<div id="loadingScreen" class="screen active">
+  <div class="loading">
+    <div style="width:48px;height:48px;border-radius:14px;background:var(--g);display:flex;align-items:center;justify-content:center;margin-bottom:4px;">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><rect x="4" y="8" width="20" height="16" rx="2" fill="white" opacity=".9"/><rect x="4" y="8" width="20" height="5" rx="2" fill="rgba(255,255,255,.4)"/><rect x="7" y="16" width="14" height="2" rx="1" fill="#1D9E75"/><rect x="7" y="19" width="9" height="2" rx="1" fill="#1D9E75" opacity=".6"/></svg>
+    </div>
+    <div class="spinner"></div>
+    <div style="font-size:13px;color:var(--tx3)">마인디움 기분기록지</div>
+  </div>
+</div>
+
+<!-- 로그인 -->
+<div id="loginScreen" class="screen">
+  <div class="scroll">
+    <div class="login-box">
+      <div class="login-logo">
+        <div class="login-dot">
+          <svg viewBox="0 0 22 22" fill="none"><rect x="2" y="6" width="18" height="13" rx="2" fill="white" opacity=".9"/><rect x="2" y="6" width="18" height="5" rx="2" fill="rgba(255,255,255,.4)"/><rect x="5" y="13" width="12" height="1.5" rx="1" fill="#1D9E75"/><rect x="5" y="15.5" width="8" height="1.5" rx="1" fill="#1D9E75" opacity=".6"/></svg>
+        </div>
+        <div><h1>마인디움</h1><p>기분기록지</p></div>
+      </div>
+      <div id="loginForm">
+        <div class="fld"><label>이메일</label><input type="email" id="lEmail" placeholder="이메일" autocomplete="email"></div>
+        <div class="fld"><label>비밀번호</label><input type="password" id="lPw" placeholder="비밀번호" autocomplete="current-password"></div>
+        <div class="err" id="lErr"></div>
+        <button class="login-btn" onclick="doLogin()">로그인</button>
+        <div class="login-toggle">처음이신가요? <a onclick="toggleForm(1)">회원가입</a></div>
+      </div>
+      <div id="registerForm" style="display:none">
+        <div class="fld"><label>이름</label><input type="text" id="rName" placeholder="성함"></div>
+        <div class="fld"><label>이메일</label><input type="email" id="rEmail" placeholder="이메일"></div>
+        <div class="fld"><label>비밀번호</label><input type="password" id="rPw" placeholder="비밀번호 (6자 이상)"></div>
+        <div class="fld"><label>병록번호</label><input type="text" id="rPid" placeholder="병록번호"></div>
+        <div class="err" id="rErr"></div>
+        <button class="login-btn" onclick="doRegister()">가입하기</button>
+        <div class="login-toggle">계정이 있으신가요? <a onclick="toggleForm(0)">로그인</a></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 홈 -->
+<div id="homeScreen" class="screen">
+  <div class="home-hdr">
+    <div class="home-hdr-inner">
+      <div class="greeting">안녕하세요 👋</div>
+      <div class="uname" id="uName">환자님</div>
+      <div class="udate" id="uDate"></div>
+    </div>
+  </div>
+  <div class="scroll" style="padding:20px;">
+    <!-- 오늘 기록 -->
+    <div class="card">
+      <h3>오늘 기록</h3>
+      <div class="today-row">
+        <div class="today-dot todo" id="todayDot"></div>
+        <div>
+          <div class="today-lbl" id="todayLbl">기록 대기 중</div>
+          <div class="today-sub" id="todaySub">오늘 기분을 기록해 주세요</div>
+        </div>
+      </div>
+      <button class="rec-btn" onclick="startInput()">
+        <svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke="#fff" stroke-width="2"><circle cx="9" cy="9" r="7.5"/><line x1="9" y1="5.5" x2="9" y2="12.5"/><line x1="5.5" y1="9" x2="12.5" y2="9"/></svg>
+        오늘 기록하기
+      </button>
+    </div>
+    <!-- 기분기록지 (최근 14개 기록, 처음 기록이 왼쪽) -->
+    <div class="card" style="padding:16px;">
+      <h3 style="margin-bottom:10px;">나의 기분기록지</h3>
+      <div class="mini-wrap">
+        <table class="mini-tbl" id="miniChart">
+          <tr><td class="lh2" style="background:#ccc">불러오는 중...</td></tr>
+        </table>
+      </div>
+    </div>
+    <!-- 하단 버튼 -->
+    <div style="display:flex;gap:10px;">
+      <div class="card" style="flex:1;cursor:pointer;padding:16px;" onclick="showScreen('reviewScreen')">
+        <div style="font-size:22px;margin-bottom:6px;">📅</div>
+        <div style="font-size:13px;font-weight:600;">기록 보기</div>
+        <div style="font-size:12px;color:var(--tx3);margin-top:2px;">달력으로 확인</div>
+      </div>
+      <div class="card" style="flex:1;cursor:pointer;padding:16px;" onclick="doLogout()">
+        <div style="font-size:22px;margin-bottom:6px;">🚪</div>
+        <div style="font-size:13px;font-weight:600;">로그아웃</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 입력 -->
+<div id="inputScreen" class="screen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <h2 id="stepTitle">기분 기록</h2>
+      <button class="topbar-btn" onclick="showScreen('homeScreen')">취소</button>
+    </div>
+  </div>
+  <div class="prog"><div class="prog-bar" id="progBar"></div></div>
+  <div class="step-body scroll" id="stepBody"></div>
+  <div class="nav-bar">
+    <button class="nbtn back" id="btnBack" onclick="prevStep()">← 이전</button>
+    <button class="nbtn next" id="btnNext" onclick="nextStep()">다음 →</button>
+  </div>
+</div>
+
+<!-- 달력 보기 -->
+<div id="reviewScreen" class="screen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <h2>기록 보기</h2>
+      <button class="topbar-btn" onclick="showScreen('homeScreen')">홈</button>
+    </div>
+  </div>
+  <div class="scroll" style="padding:16px;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+      <button style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g);" onclick="changeMonth(-1)">‹</button>
+      <h3 id="revMonthLbl" style="font-size:18px;font-weight:700;"></h3>
+      <button style="background:none;border:none;font-size:24px;cursor:pointer;color:var(--g);" onclick="changeMonth(1)">›</button>
+    </div>
+    <div class="cal-grid" id="calGrid"></div>
+    <div id="dayDetail"></div>
+  </div>
+</div>
+
+<!-- 의사: 환자 목록 -->
+<div id="doctorScreen" class="screen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <h2>환자 현황</h2>
+      <button class="topbar-btn" onclick="doLogout()">로그아웃</button>
+    </div>
+  </div>
+  <div class="scroll" style="padding:16px;">
+    <div id="ptList"><div class="loading" style="height:200px;"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- 의사: 환자 상세 -->
+<div id="doctorDetailScreen" class="screen">
+  <div class="topbar">
+    <div class="topbar-inner">
+      <h2 id="ddName">기분기록지</h2>
+      <button class="topbar-btn" onclick="showScreen('doctorScreen')">← 목록</button>
+    </div>
+  </div>
+  <div class="scroll" style="padding:16px;">
+    <div class="period-row">
+      <button class="period-btn active" onclick="setPeriod('week',this)">1주</button>
+      <button class="period-btn" onclick="setPeriod('2week',this)">2주</button>
+      <button class="period-btn" onclick="setPeriod('month',this)">4주</button>
+    </div>
+    <div class="chart-wrap" id="ddChart"><div class="loading" style="height:200px;"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 상수 & 상태
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+let user=null, userDoc=null, step=0, data={};
+let revYear, revMonth, ddUid=null, ddPeriod='week';
+
+const DAYS='일월화수목금토';
+const MOOD_INFO=[
+  {s:4,  c:'#F6BA92',n:'4 극히 상승',  d:'아무것도 할 수 없거나 입원이 필요한 상태'},
+  {s:3,  c:'#F9D1B9',n:'3 상당히 상승',d:'상당한 지장, 주변에서 힘들어함'},
+  {s:2,  c:'#FCE7D8',n:'2 분명한 상승',d:'주변에서 평소와 다르다고 지적'},
+  {s:1,  c:'#FEF5F0',n:'1 미세한 상승',d:'스스로 느끼지만 기능 변화 없음'},
+  {s:0,  c:'#fff',   n:'0 보통 기분',  d:'평소 편안할 때의 상태'},
+  {s:-1, c:'#ECF0F8',n:'-1 미세한 저하',d:'스스로 느끼지만 기능 변화 없음'},
+  {s:-2, c:'#D6E0F2',n:'-2 분명한 저하',d:'일상 유지에 노력이 필요'},
+  {s:-3, c:'#B6C8E8',n:'-3 상당한 저하',d:'노력해도 기능이 떨어짐'},
+  {s:-4, c:'#9AB2DE',n:'-4 극히 저하',  d:'아무것도 할 수 없거나 입원이 필요한 상태'},
+];
+const S2RC={'4':'r-m4','3':'r-m3','2':'r-m2','1':'r-m1','0':'r-z','-1':'r-n1','-2':'r-n2','-3':'r-n3','-4':'r-n4'};
+const S2DRC={'4':'rm4','3':'rm3','2':'rm2','1':'rm1','0':'rz','-1':'rn1','-2':'rn2','-3':'rn3','-4':'rn4'};
+
+const STEPS=[
+  {id:'mood',       title:'기분',      tag:'오늘의 기분',   q:'오늘 하루 기분이 어떠셨나요?',             type:'mood'},
+  {id:'mixed',      title:'혼재상태',  tag:'혼재상태',      q:'하루 동안 기분이 오르내렸나요?',           type:'yn',
+   sub:'기분이 올랐다가 내려가거나, 내려갔다가 올라간 경우 "예"를 선택하세요.'},
+  {id:'fear',       title:'두려움/불안',tag:'정서반응',      q:'두려움·불안·걱정이 얼마나 있었나요?',      type:'slider',
+   sub:'너무 없음 -4  /  적당 0  /  극히 증가 +4'},
+  {id:'anger',      title:'짜증/분노', tag:'정서반응',      q:'짜증·분노가 얼마나 있었나요?',             type:'slider',
+   sub:'너무 없음 -4  /  적당 0  /  극히 증가 +4'},
+  {id:'interest',   title:'관심/의욕', tag:'의욕',          q:'관심·흥미·의욕이 얼마나 있었나요?',        type:'slider',
+   sub:'매우 감소 -4  /  적당 0  /  극히 증가 +4'},
+  {id:'activity',   title:'활동량',    tag:'의욕',          q:'오늘 활동량은 어떠셨나요?',                type:'slider',
+   sub:'매우 감소 -4  /  적당 0  /  극히 증가 +4'},
+  {id:'thoughtSpeed',title:'생각 속도',tag:'생각',          q:'생각의 속도와 양이 어떠셨나요?',           type:'slider',
+   sub:'매우 느리고 적음 -4  /  적당 0  /  극히 빠르고 많음 +4'},
+  {id:'thoughtContent',title:'생각 내용',tag:'생각',        q:'생각의 내용이 어떠셨나요?',                type:'slider',
+   sub:'극히 부정적 -4  /  적당 0  /  극히 긍정적 +4'},
+  {id:'sleep',      title:'수면',      tag:'수면',          q:'어젯밤 수면은 어떠셨나요?',                type:'sleep'},
+  {id:'negative',   title:'음주/폭식', tag:'음주·폭식·구토',q:'해당하는 항목이 있으셨나요?',             type:'negative',
+   sub:'해당하는 항목을 모두 선택해 주세요.'},
+  {id:'positive',   title:'운동/활동', tag:'긍정적 활동',   q:'오늘 좋은 활동이 있으셨나요?',             type:'positive',
+   sub:'해당하는 항목을 모두 선택해 주세요.'},
+  {id:'event',      title:'생활사건',  tag:'생활사건',       q:'오늘 특별한 사건이 있으셨나요?',           type:'event'},
+  {id:'done',       title:'완료',      tag:'완료',           q:'',                                         type:'done'},
+];
+
+const SLIDER_DESC={
+  '4':'극히 증가','3':'상당히 증가','2':'분명히 증가','1':'약간 증가',
+  '0':'적당 (기준 상태)','-1':'약간 감소','-2':'분명히 감소','-3':'상당히 감소','-4':'극히 감소/없음'
+};
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 유틸
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const $=id=>document.getElementById(id);
+const todayStr=()=>new Date().toISOString().slice(0,10);
+const fmtDate=d=>`${d.getFullYear()}년 ${d.getMonth()+1}월 ${d.getDate()}일 ${DAYS[d.getDay()]}요일`;
+function toast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2200);}
+function showScreen(id){document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));$(id).classList.add('active');}
+function toggleForm(n){$('loginForm').style.display=n?'none':'block';$('registerForm').style.display=n?'block':'none';}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 인증
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function doLogin(){
+  const fb=window._fb; if(!fb){toast('Firebase 미설정');return;}
+  $('lErr').textContent='';
+  try{ await fb.signInWithEmailAndPassword(fb.auth,$('lEmail').value.trim(),$('lPw').value); }
+  catch(e){ $('lErr').textContent=e.code==='auth/invalid-credential'?'이메일 또는 비밀번호를 확인해 주세요.':e.message; }
+}
+async function doRegister(){
+  const fb=window._fb; if(!fb){toast('Firebase 미설정');return;}
+  $('rErr').textContent='';
+  const name=$('rName').value.trim(),email=$('rEmail').value.trim(),pw=$('rPw').value,pid=$('rPid').value.trim();
+  if(!name||!email||!pw||!pid){$('rErr').textContent='모든 항목을 입력해 주세요.';return;}
+  try{
+    const c=await fb.createUserWithEmailAndPassword(fb.auth,email,pw);
+    await fb.setDoc(fb.doc(fb.db,'users',c.user.uid),{name,email,patientId:pid,role:'patient',createdAt:fb.Timestamp.now()});
+  } catch(e){ $('rErr').textContent=e.code==='auth/email-already-in-use'?'이미 사용 중인 이메일입니다.':e.message; }
+}
+async function doLogout(){const fb=window._fb;if(fb)await fb.signOut(fb.auth);}
+
+window.addEventListener('load',()=>{
+  const fb=window._fb;
+  if(!fb){showScreen('loginScreen');return;}
+  fb.onAuthStateChanged(fb.auth,async u=>{
+    user=u;
+    if(!u){showScreen('loginScreen');return;}
+    const snap=await fb.getDoc(fb.doc(fb.db,'users',u.uid));
+    if(snap.exists())userDoc=snap.data();
+    if(userDoc?.role==='doctor')initDoctor();
+    else initPatient();
+  });
+});
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 환자 홈
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function initPatient(){
+  $('uName').textContent=(userDoc?.name||'환자')+'님';
+  $('uDate').textContent=fmtDate(new Date());
+  await checkToday();
+  await renderMiniChart();
+  revYear=new Date().getFullYear(); revMonth=new Date().getMonth();
+  renderCalendar();
+  showScreen('homeScreen');
+}
+
+async function checkToday(){
+  const fb=window._fb;
+  const snap=await fb.getDoc(fb.doc(fb.db,'records',user.uid,'daily',todayStr()));
+  if(snap.exists()){
+    $('todayDot').className='today-dot done';
+    $('todayLbl').textContent='기록 완료 ✓';
+    $('todaySub').textContent='오늘 기록이 저장되었습니다';
+  } else {
+    $('todayDot').className='today-dot todo';
+    $('todayLbl').textContent='기록 대기 중';
+    $('todaySub').textContent='오늘 기분을 기록해 주세요';
+  }
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 홈 미니 기분기록지
+// 규칙: 실제 기록된 날짜만 사용, 오래된 것(처음 기록)이 왼쪽
+//       최대 14개, 넘으면 오래된 것부터 왼쪽에서 밀려남
+//       기록이 14개 미만이면 빈 슬롯은 오른쪽이 아닌 왼쪽에 채움 (X)
+//       → 실제로는 왼쪽부터 채움: 첫 기록=1열, 두 번째=2열 ... 14열 차면 슬라이딩
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function renderMiniChart(){
+  const fb=window._fb;
+  const tbl=$('miniChart');
+  if(!tbl) return;
+
+  // 1. 실제 기록된 모든 날짜 조회 (오름차순 = 오래된 것 먼저)
+  let allDates=[];
+  try {
+    const snap=await fb.getDocs(fb.collection(fb.db,'records',user.uid,'daily'));
+    snap.forEach(d=>allDates.push(d.id));
+    allDates.sort(); // 'YYYY-MM-DD' 형식이므로 문자열 정렬 = 날짜 오름차순
+  } catch(e){ console.error(e); return; }
+
+  // 2. 최대 14개 — 오래된 것이 앞 (slice 불필요하지 않지만 안전하게)
+  if(allDates.length>14) allDates=allDates.slice(allDates.length-14);
+  // 이제 allDates[0]이 가장 오래된 기록, allDates[N-1]이 가장 최근 기록
+
+  // 3. 총 14칸 — 기록이 적으면 오른쪽에 빈 슬롯 추가
+  const SLOTS=14;
+  // 왼쪽부터 채우기: [기록1, 기록2, ..., 빈, 빈]
+  const slots=[...allDates,...Array(SLOTS-allDates.length).fill(null)];
+
+  // 4. 데이터 로드
+  const recs={};
+  for(const d of allDates){
+    const snap=await fb.getDoc(fb.doc(fb.db,'records',user.uid,'daily',d));
+    if(snap.exists()) recs[d]=snap.data();
+  }
+
+  // 5. 표 생성
+  const SCORES=[4,3,2,1,0,-1,-2,-3,-4];
+  const SNAME={'4':'+4','3':'+3','2':'+2','1':'+1','0':'0','-1':'-1','-2':'-2','-3':'-3','-4':'-4'};
+  let html='';
+
+  // 헤더
+  html+=`<tr>
+    <td class="lh-hdr" colspan="2">항목</td>
+    ${slots.map(d=>{
+      if(!d) return `<td class="lh-hdr" style="background:#aaa"></td>`;
+      const dt=new Date(d+'T00:00:00');
+      return `<td class="lh-hdr">${DAYS[dt.getDay()]}<br>${dt.getDate()}</td>`;
+    }).join('')}
+  </tr>`;
+
+  // 기분 행 (+4 ~ -4) — 각 td에 직접 배경색 적용
+  const MBGC={'4':'#F6BA92','3':'#F9D1B9','2':'#FCE7D8','1':'#FEF5F0','0':'#ffffff',
+              '-1':'#ECF0F8','-2':'#D6E0F2','-3':'#B6C8E8','-4':'#9AB2DE'};
+  SCORES.forEach((sc,idx)=>{
+    const k=String(sc), bg=MBGC[k]||'#fff';
+    const cat=idx===0
+      ? `<td class="lhcat" rowspan="9" style="background:#B4C6E7;writing-mode:vertical-rl;text-align:center;width:14px;min-width:14px;">기분</td>`
+      : '';
+    // lh2(설명열)도 해당 행 배경색 적용 (원본 PDF와 동일)
+    html+=`<tr>
+      ${cat}
+      <td class="lh2" style="background:${bg}">${SNAME[k]}</td>
+      ${slots.map(d=>{
+        if(!d) return `<td style="background:#f0f0ee;min-width:22px;width:22px;"></td>`;
+        const r=recs[d]; let v='';
+        if(r&&r.mood===sc) v=`<span class="mv">v</span>`;
+        return `<td style="background:${bg};min-width:22px;width:22px;">${v}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // 혼재 (흰색 배경)
+  html+=`<tr>
+    <td class="lh2" colspan="2" style="background:#B4C6E7">혼재상태</td>
+    ${slots.map(d=>{
+      if(!d) return `<td style="background:#f0f0ee;min-width:22px;width:22px;"></td>`;
+      const r=recs[d];
+      return `<td style="background:#fff;min-width:22px;width:22px;">${r?.mixed?`<span class="mv">v</span>`:''}</td>`;
+    }).join('')}
+  </tr>`;
+
+  // 정서반응 — 초록 배경
+  const jeongRows=[['fear','두려움'],['anger','짜증/분노']];
+  jeongRows.forEach(([fld,lbl],idx)=>{
+    const cat=idx===0
+      ? `<td class="lhcat" rowspan="2" style="background:#C5D1BD;writing-mode:vertical-rl;">정서</td>`
+      : '';
+    html+=`<tr>
+      ${cat}
+      <td class="lh2 jeong">${lbl}</td>
+      ${slots.map(d=>{
+        if(!d) return `<td class="empty"></td>`;
+        const r=recs[d]; const v=r?.[fld];
+        return `<td style="background:${r?'#E2EFD9':''}">${v!==undefined&&v!==0?(v>0?'+':'')+v:''}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // 의욕
+  const uiRows=[['interest','관심/의욕'],['activity','활동량']];
+  uiRows.forEach(([fld,lbl],idx)=>{
+    const cat=idx===0
+      ? `<td class="lhcat" rowspan="2" style="background:#C5D1BD;writing-mode:vertical-rl;">의욕</td>`
+      : '';
+    html+=`<tr>
+      ${cat}
+      <td class="lh2 jeong">${lbl}</td>
+      ${slots.map(d=>{
+        if(!d) return `<td class="empty"></td>`;
+        const r=recs[d]; const v=r?.[fld];
+        return `<td style="background:${r?'#E2EFD9':''}">${v!==undefined&&v!==0?(v>0?'+':'')+v:''}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // 생각
+  const saengRows=[['thoughtSpeed','속도/양'],['thoughtContent','내용']];
+  saengRows.forEach(([fld,lbl],idx)=>{
+    const cat=idx===0
+      ? `<td class="lhcat" rowspan="2" style="background:#BECDE6;writing-mode:vertical-rl;">생각</td>`
+      : '';
+    html+=`<tr>
+      ${cat}
+      <td class="lh2 saeng">${lbl}</td>
+      ${slots.map(d=>{
+        if(!d) return `<td class="empty"></td>`;
+        const r=recs[d]; const v=r?.[fld];
+        return `<td style="background:${r?'#DEEAF6':''}">${v!==undefined&&v!==0?(v>0?'+':'')+v:''}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // 수면
+  html+=`<tr>
+    <td class="lh2" colspan="2" style="background:#FBE4D5">수면(h)</td>
+    ${slots.map(d=>{
+      if(!d) return `<td style="background:#f0f0ee;min-width:22px;width:22px;"></td>`;
+      const r=recs[d];
+      return `<td style="background:#FBE4D5;min-width:22px;width:22px;">${r?.sleepHours||''}</td>`;
+    }).join('')}
+  </tr>`;
+
+  // 음주
+  html+=`<tr>
+    <td class="lh2" colspan="2" style="background:#FAF6D6">음주(잔)</td>
+    ${slots.map(d=>{
+      if(!d) return `<td style="background:#f0f0ee;min-width:22px;width:22px;"></td>`;
+      const r=recs[d];
+      return `<td style="background:#FAF6D6;min-width:22px;width:22px;">${r?.drink||''}</td>`;
+    }).join('')}
+  </tr>`;
+
+  // 체크항목
+  [['exercise','운동'],['binge','폭식'],['cry','울음'],['panic','공황'],['vomit','구토']].forEach(([fld,lbl])=>{
+    html+=`<tr>
+      <td class="lh2" colspan="2" style="background:#FAF6D6">${lbl}</td>
+      ${slots.map(d=>{
+        if(!d) return `<td style="background:#f0f0ee;min-width:22px;width:22px;"></td>`;
+        const r=recs[d];
+        return `<td style="background:#FAF6D6;min-width:22px;width:22px;">${r?.[fld]?`<span class="mv">v</span>`:''}</td>`;
+      }).join('')}
+    </tr>`;
+  });
+
+  // 생활사건 v 행
+  html+=`<tr>
+    <td class="lh2" colspan="2" style="background:#fff">생활사건</td>
+    ${slots.map(d=>{
+      if(!d) return `<td style="background:#f0f0ee;min-width:22px;width:22px;"></td>`;
+      const r=recs[d];
+      return `<td style="background:#fff;min-width:22px;width:22px;">${r?.lifeEvent?`<span class="mv">v</span>`:''}</td>`;
+    }).join('')}
+  </tr>`;
+
+  // 생활사건 기술 내용 — 기록지 원본처럼 날짜+제목을 아래에 나열
+  const evtEntries=slots
+    .filter(d=>d&&recs[d]?.lifeEvent&&recs[d]?.evtTitle)
+    .map(d=>{const dt=new Date(d+'T00:00:00');return `( ${dt.getDate()} )일&nbsp;&nbsp;${recs[d].evtTitle}`;});
+  if(evtEntries.length>0){
+    html+=`<tr class="evt-rows"><td colspan="${2+SLOTS}" style="font-size:9px;text-align:left;padding:3px 6px;background:#fff;white-space:normal;">
+      ${evtEntries.join('&nbsp;&nbsp;&nbsp;&nbsp;')}
+    </td></tr>`;
+  }
+
+  tbl.innerHTML=html;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 입력 스텝
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+function startInput(){ data={}; step=0; renderStep(); showScreen('inputScreen'); }
+
+function renderStep(){
+  const s=STEPS[step], total=STEPS.length-1;
+  $('stepTitle').textContent=s.title;
+  $('progBar').style.width=((step/total)*100)+'%';
+  $('btnBack').disabled=step===0;
+  $('btnNext').textContent=step>=total-1?'저장':'다음 →';
+
+  let html=`<div class="step-tag">${s.tag}</div><div class="step-q">${s.q}</div>`;
+  if(s.sub) html+=`<div class="step-sub">${s.sub}</div>`;
+
+  switch(s.type){
+    case 'mood':     html+=renderMood(); break;
+    case 'yn':       html+=renderYn(s.id); break;
+    case 'slider':   html+=renderSlider(s.id); break;
+    case 'sleep':    html+=renderSleep(); break;
+    case 'negative': html+=renderNegative(); break;
+    case 'positive': html+=renderPositive(); break;
+    case 'event':    html+=renderEvent(); break;
+    case 'done':     html+=renderDone(); $('btnNext').textContent='홈으로'; break;
+  }
+  $('stepBody').innerHTML=html;
+  if(s.type==='sleep') setTimeout(initClocks,80);
+  $('stepBody').scrollTop=0;
+}
+
+function renderMood(){
+  return `<div class="mood-list">`+MOOD_INFO.map(m=>`
+    <button class="mood-btn${data.mood===m.s?' sel':''}" onclick="pickMood(${m.s})">
+      <div class="mood-swatch" style="background:${m.c};${m.s===0?'border:1px solid #ccc':''}"></div>
+      <div><div class="mood-name">${m.n}</div><div class="mood-desc">${m.d}</div></div>
+    </button>`).join('')+`</div>`;
+}
+function pickMood(s){ data.mood=s; renderStep(); }
+
+function renderYn(id){
+  return `<div class="yn-row">
+    <button class="yn-btn yes${data[id]===true?' sel':''}" onclick="pickYn('${id}',true)">예</button>
+    <button class="yn-btn no${data[id]===false?' sel':''}" onclick="pickYn('${id}',false)">아니오</button>
+  </div>`;
+}
+function pickYn(id,v){ data[id]=v; renderStep(); }
+
+function renderSlider(id){
+  const v=data[id]??0;
+  const pct=(v+4)/8*100;
+  const col=v>=0?'#D85A30':'#378ADD';
+  return `<div class="sl-wrap">
+    <div class="sl-val" id="slVal" style="color:${col}">${v>0?'+'+v:v}</div>
+    <div class="sl-desc" id="slDesc">${SLIDER_DESC[String(v)]||''}</div>
+    <input type="range" class="slider" id="mainSl" min="-4" max="4" value="${v}"
+      style="background:linear-gradient(to right,#378ADD 0%,#378ADD ${pct}%,#e0e0e0 ${pct}%,#e0e0e0 100%)"
+      oninput="updSlider('${id}',this.value)">
+    <div class="sl-labels"><span>-4</span><span>0</span><span>+4</span></div>
+  </div>`;
+}
+function updSlider(id,v){
+  v=parseInt(v); data[id]=v;
+  $('slVal').textContent=v>0?'+'+v:v;
+  $('slVal').style.color=v>=0?'#D85A30':'#378ADD';
+  $('slDesc').textContent=SLIDER_DESC[String(v)]||'';
+  const pct=(v+4)/8*100;
+  $('mainSl').style.background=`linear-gradient(to right,#378ADD 0%,#378ADD ${pct}%,#e0e0e0 ${pct}%,#e0e0e0 100%)`;
+}
+
+function renderSleep(){
+  const sd=data.sleepDetail||{bedtime:'23:00',waketime:'07:00',latency:15,wakeups:0,total:7};
+  if(!data.sleepDetail) data.sleepDetail={...sd};
+  return `<div style="display:flex;flex-direction:column;gap:12px;">
+    <div class="sleep-field">
+      <label class="sleep-lbl">🌙 잠든 시간</label>
+      <input type="time" id="bedIn" value="${sd.bedtime}"
+        style="width:100%;border:none;font-size:28px;font-weight:700;color:var(--gd);font-family:inherit;outline:none;background:transparent;"
+        oninput="data.sleepDetail.bedtime=this.value;calcTotal()">
+    </div>
+    <div class="sleep-field">
+      <label class="sleep-lbl">☀️ 깬 시간</label>
+      <input type="time" id="wakeIn" value="${sd.waketime}"
+        style="width:100%;border:none;font-size:28px;font-weight:700;color:var(--gd);font-family:inherit;outline:none;background:transparent;"
+        oninput="data.sleepDetail.waketime=this.value;calcTotal()">
+    </div>
+    <div class="sleep-field">
+      <label class="sleep-lbl">⏱ 잠드는 데 걸린 시간</label>
+      <div style="display:flex;align-items:center;gap:12px;margin-top:4px;">
+        <input type="range" class="slider" min="0" max="120" step="5" value="${sd.latency}"
+          style="flex:1;background:linear-gradient(to right,var(--g) 0%,var(--g) ${sd.latency/120*100}%,#e0e0e0 ${sd.latency/120*100}%,#e0e0e0 100%)"
+          oninput="updLatency(this.value)">
+        <span id="latDisp" style="font-size:16px;font-weight:700;color:var(--g);min-width:50px">${sd.latency}분</span>
+      </div>
+    </div>
+    <div class="sleep-field">
+      <label class="sleep-lbl">😴 중간에 깬 횟수</label>
+      <div style="display:flex;align-items:center;gap:14px;margin-top:4px;">
+        <button class="drink-btn" onclick="adjWakeups(-1)">−</button>
+        <span id="wuDisp" style="font-size:28px;font-weight:700;color:var(--g);min-width:36px;text-align:center">${sd.wakeups}</span>
+        <button class="drink-btn" onclick="adjWakeups(1)">+</button>
+        <span style="font-size:14px;color:var(--tx2)">회</span>
+      </div>
+    </div>
+    <div class="sleep-total">
+      <div class="sleep-total-lbl">총 수면시간 (자동 계산)</div>
+      <div class="sleep-total-val" id="totalDisp">${sd.total}시간</div>
+    </div>
+  </div>`;
+}
+
+// 시계 드래그 제거됨 (숫자 직접 입력 방식)
+function updLatency(v){
+  data.sleepDetail.latency=parseInt(v);
+  if($('latDisp'))$('latDisp').textContent=v+'분';
+  const pct=v/120*100;
+  event.target.style.background=`linear-gradient(to right,var(--g) 0%,var(--g) ${pct}%,#e0e0e0 ${pct}%,#e0e0e0 100%)`;
+}
+function adjWakeups(d){
+  if(!data.sleepDetail)return;
+  data.sleepDetail.wakeups=Math.max(0,(data.sleepDetail.wakeups||0)+d);
+  if($('wuDisp'))$('wuDisp').textContent=data.sleepDetail.wakeups;
+}
+function calcTotal(){
+  const sd=data.sleepDetail; if(!sd?.bedtime||!sd?.waketime) return;
+  const [bh,bm]=sd.bedtime.split(':').map(Number);
+  const [wh,wm]=sd.waketime.split(':').map(Number);
+  let bM=bh*60+bm, wM=wh*60+wm;
+  if(wM<=bM) wM+=24*60;
+  sd.total=Math.round((wM-bM)/60*10)/10;
+  if($('totalDisp'))$('totalDisp').textContent=sd.total+'시간';
+}
+
+function renderNegative(){
+  const NEG=[{id:'binge',l:'폭식',i:'🍔'},{id:'vomit',l:'구토',i:'🤢'},{id:'pain',l:'통증/신체증상',i:'😣'},{id:'cry',l:'울음',i:'😭'},{id:'panic',l:'과호흡/공황발작',i:'😰'}];
+  return `<div class="drink-row">
+    <div style="font-size:14px;font-weight:600;flex:1">🍺 음주</div>
+    <button class="drink-btn" onclick="adjDrink(-1)">−</button>
+    <span class="drink-val" id="drinkDisp">${data.drink||0}</span>
+    <button class="drink-btn" onclick="adjDrink(1)">+</button>
+    <span style="font-size:14px;color:var(--tx2)">잔</span>
+  </div>
+  <div class="chk-list">`+NEG.map(c=>`
+    <div class="chk-item${data[c.id]?' on':''}" onclick="togChk('${c.id}',this)">
+      <div class="chk-box"><svg viewBox="0 0 13 13" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 5,10 11,3"/></svg></div>
+      <span style="font-size:18px">${c.i}</span><span style="font-size:15px;font-weight:500">${c.l}</span>
+    </div>`).join('')+`</div>`;
+}
+function adjDrink(d){ data.drink=Math.max(0,(data.drink||0)+d); if($('drinkDisp'))$('drinkDisp').textContent=data.drink; }
+
+function renderPositive(){
+  const POS=[{id:'exercise',l:'운동',i:'🏃'},{id:'meditation',l:'명상/이완',i:'🧘'},{id:'social',l:'사람 만남',i:'🤝'},{id:'hobby',l:'취미/여가',i:'🎨'},{id:'outdoors',l:'야외 활동',i:'🌿'}];
+  return `<div class="chk-list">`+POS.map(c=>`
+    <div class="chk-item${data[c.id]?' on':''}" onclick="togChk('${c.id}',this)">
+      <div class="chk-box"><svg viewBox="0 0 13 13" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="2,7 5,10 11,3"/></svg></div>
+      <span style="font-size:18px">${c.i}</span><span style="font-size:15px;font-weight:500">${c.l}</span>
+    </div>`).join('')+`</div>`;
+}
+function togChk(id,el){ data[id]=!data[id]; el.classList.toggle('on',data[id]); el.querySelector('.chk-box').style.background=data[id]?'var(--g)':''; }
+
+function renderEvent(){
+  const has=data.lifeEvent??null;
+  return `<div class="yn-row">
+    <button class="yn-btn yes${has===true?' sel':''}" onclick="pickYn('lifeEvent',true)">있었어요</button>
+    <button class="yn-btn no${has===false?' sel':''}" onclick="pickYn('lifeEvent',false)">없었어요</button>
+  </div>
+  ${has===true?`
+  <div style="margin-top:14px;display:flex;flex-direction:column;gap:10px;">
+    <div class="evt-type-row">
+      ${['😔 힘든 일','😊 좋은 일','😐 중립적'].map(t=>`<button class="evt-type-btn${data.evtType===t?' sel':''}" onclick="pickEvtType('${t}')">${t}</button>`).join('')}
+    </div>
+    <input class="evt-title" id="evtTitle" type="text" placeholder="사건 제목 (예: 직장 스트레스, 가족 모임...)" value="${data.evtTitle||''}" oninput="data.evtTitle=this.value">
+    <textarea class="evt-body" id="evtBody" placeholder="자세한 내용을 적어주세요 (선택)" oninput="data.evtText=this.value">${data.evtText||''}</textarea>
+  </div>`:''}`;
+}
+function pickEvtType(t){ data.evtType=t; renderStep(); }
+
+function renderDone(){
+  return `<div class="done-wrap">
+    <div class="done-icon"><svg width="40" height="40" viewBox="0 0 40 40" fill="none" stroke="#1D9E75" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="8,21 16,29 32,12"/></svg></div>
+    <div class="done-title">기록 완료!</div>
+    <div class="done-sub">오늘 기분이 저장되었습니다.<br>꾸준한 기록이 치료에 도움이 됩니다. 💚</div>
+  </div>`;
+}
+
+async function nextStep(){
+  const s=STEPS[step];
+  if(s.type==='mood'&&data.mood===undefined){toast('기분을 선택해 주세요');return;}
+  if(s.type==='yn'&&data[s.id]===undefined){toast('선택해 주세요');return;}
+  if(s.type==='event'&&data.lifeEvent===undefined){toast('선택해 주세요');return;}
+  if(s.type==='sleep'){ if(!data.sleepDetail) data.sleepDetail={bedtime:'23:00',waketime:'07:00',latency:15,wakeups:0,total:7}; calcTotal(); }
+  if(s.type==='done'){ showScreen('homeScreen'); await checkToday(); await renderMiniChart(); return; }
+  if(step===STEPS.length-2) await saveRecord();
+  step++; renderStep();
+}
+function prevStep(){ if(step>0){step--;renderStep();} }
+
+async function saveRecord(){
+  const fb=window._fb;
+  const isSun=new Date().getDay()===0;
+  const rec={
+    mood:data.mood??0, mixed:data.mixed??false,
+    fear:data.fear??0, anger:data.anger??0,
+    interest:data.interest??0, activity:data.activity??0,
+    thoughtSpeed:data.thoughtSpeed??0, thoughtContent:data.thoughtContent??0,
+    sleepHours:data.sleepDetail?.total??7,
+    sleepBedtime:data.sleepDetail?.bedtime||'',
+    sleepWaketime:data.sleepDetail?.waketime||'',
+    sleepLatency:data.sleepDetail?.latency??15,
+    sleepWakeups:data.sleepDetail?.wakeups??0,
+    weight:isSun?(data.weight??null):null,
+    drink:data.drink??0,
+    binge:data.binge??false, vomit:data.vomit??false, pain:data.pain??false,
+    cry:data.cry??false, panic:data.panic??false,
+    exercise:data.exercise??false, meditation:data.meditation??false,
+    social:data.social??false, hobby:data.hobby??false, outdoors:data.outdoors??false,
+    lifeEvent:data.lifeEvent??false,
+    evtTitle:data.evtTitle||'', evtText:data.evtText||'', evtType:data.evtType||'',
+    createdAt:fb.Timestamp.now(), updatedAt:fb.Timestamp.now(),
+    patientId:userDoc?.patientId||'', patientName:userDoc?.name||'',
+  };
+  await fb.setDoc(fb.doc(fb.db,'records',user.uid,'daily',todayStr()),rec);
+  toast('저장되었습니다 ✓');
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 달력
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function renderCalendar(){
+  const fb=window._fb;
+  $('revMonthLbl').textContent=`${revYear}년 ${revMonth+1}월`;
+  const grid=$('calGrid');
+  grid.innerHTML='일월화수목금토'.split('').map(d=>`<div class="cal-head">${d}</div>`).join('');
+  const first=new Date(revYear,revMonth,1).getDay(), last=new Date(revYear,revMonth+1,0).getDate();
+  const today=todayStr(), ms=`${revYear}-${String(revMonth+1).padStart(2,'0')}`;
+  const recs={};
+  for(let d=1;d<=last;d++){
+    const ds=`${ms}-${String(d).padStart(2,'0')}`;
+    const s=await fb.getDoc(fb.doc(fb.db,'records',user.uid,'daily',ds));
+    if(s.exists()) recs[ds]=s.data();
+  }
+  for(let i=0;i<first;i++) grid.innerHTML+=`<div class="cal-cell empty"></div>`;
+  for(let d=1;d<=last;d++){
+    const ds=`${ms}-${String(d).padStart(2,'0')}`, r=recs[ds];
+    let bg='#fff';
+    if(r){ const m=r.mood??0; bg=m>=3?'#F6BA92':m>=1?'#FCE7D8':m===0?'#E1F5EE':m>=-2?'#D6E0F2':'#9AB2DE'; }
+    const isTod=ds===today;
+    grid.innerHTML+=`<div class="cal-cell${isTod?' today':''}" style="background:${bg}"
+      onclick="showDay('${ds}',${JSON.stringify(recs[ds]||null).replace(/"/g,'&quot;')})">
+      <span style="font-weight:${isTod?700:400}">${d}</span>
+    </div>`;
+  }
+}
+function changeMonth(d){ revMonth+=d; if(revMonth<0){revMonth=11;revYear--;}if(revMonth>11){revMonth=0;revYear++;} renderCalendar(); $('dayDetail').innerHTML=''; }
+function showDay(ds,r){
+  if(!r){$('dayDetail').innerHTML=`<div style="text-align:center;padding:20px;color:var(--tx3)">${ds} — 기록 없음</div>`;return;}
+  const mi=MOOD_INFO.find(m=>m.s===r.mood);
+  $('dayDetail').innerHTML=`<div class="detail-card">
+    <h4>${ds} 기록</h4>
+    <div class="drow"><span class="drow-lbl">기분</span><span class="drow-val" style="background:${mi?.c||'#fff'};padding:2px 10px;border-radius:6px">${mi?.n||r.mood}</span></div>
+    <div class="drow"><span class="drow-lbl">수면</span><span class="drow-val">${r.sleepHours}h (취침 ${r.sleepBedtime||'-'} / 기상 ${r.sleepWaketime||'-'})</span></div>
+    <div class="drow"><span class="drow-lbl">두려움/불안</span><span class="drow-val">${r.fear>0?'+':''}${r.fear}</span></div>
+    <div class="drow"><span class="drow-lbl">짜증/분노</span><span class="drow-val">${r.anger>0?'+':''}${r.anger}</span></div>
+    <div class="drow"><span class="drow-lbl">활동량</span><span class="drow-val">${r.activity>0?'+':''}${r.activity}</span></div>
+    ${r.drink?`<div class="drow"><span class="drow-lbl">음주</span><span class="drow-val">${r.drink}잔</span></div>`:''}
+    ${r.lifeEvent&&r.evtTitle?`<div class="drow"><span class="drow-lbl">생활사건</span><span class="drow-val" style="max-width:60%;text-align:right;font-size:13px">${r.evtTitle}</span></div>`:''}
+  </div>`;
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// 의사 대시보드
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+async function initDoctor(){
+  showScreen('doctorScreen');
+  const fb=window._fb;
+  const list=$('ptList');
+  list.innerHTML='<div class="loading" style="height:200px;"><div class="spinner"></div></div>';
+  try{
+    const q=fb.query(fb.collection(fb.db,'users'),fb.where('role','==','patient'));
+    const snap=await fb.getDocs(q);
+    if(snap.empty){list.innerHTML='<div style="text-align:center;padding:40px;color:var(--tx3)">등록된 환자가 없습니다</div>';return;}
+    list.innerHTML='';
+    snap.forEach(d=>{
+      const p=d.data();
+      list.innerHTML+=`<div class="pt-item" onclick="openPt('${d.id}','${p.name||''}')">
+        <div class="pt-ava">${(p.name||'?')[0]}</div>
+        <div class="pt-info"><h4>${p.name||'이름 없음'}</h4><p>병록번호: ${p.patientId||'-'}</p></div>
+        <div class="pt-badge">조회 →</div>
+      </div>`;
+    });
+  } catch(e){ list.innerHTML=`<div style="padding:20px;color:#e04444">${e.message}</div>`; }
+}
+
+async function openPt(uid,name){
+  ddUid=uid; ddPeriod='week';
+  $('ddName').textContent=name+' 기분기록지';
+  document.querySelectorAll('.period-btn').forEach((b,i)=>{b.classList.toggle('active',i===0);});
+  showScreen('doctorDetailScreen');
+  await renderDdChart();
+}
+
+function setPeriod(p,btn){
+  ddPeriod=p;
+  document.querySelectorAll('.period-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  renderDdChart();
+}
+
+async function renderDdChart(){
+  const fb=window._fb;
+  const wrap=$('ddChart');
+  wrap.innerHTML='<div class="loading" style="height:200px;"><div class="spinner"></div></div>';
+  const days=ddPeriod==='week'?7:ddPeriod==='2week'?14:28;
+  const dates=[];
+  const today=new Date();
+  for(let i=days-1;i>=0;i--){const d=new Date(today);d.setDate(today.getDate()-i);dates.push(d.toISOString().slice(0,10));}
+  const recs={};
+  for(const ds of dates){const s=await fb.getDoc(fb.doc(fb.db,'records',ddUid,'daily',ds));if(s.exists())recs[ds]=s.data();}
+  const SCORES=[4,3,2,1,0,-1,-2,-3,-4];
+  const SNAME={'4':'+4','3':'+3','2':'+2','1':'+1','0':'0','-1':'-1','-2':'-2','-3':'-3','-4':'-4'};
+  let tbody='';
+  SCORES.forEach((sc,idx)=>{
+    const k=String(sc),rc=S2DRC[k]||'rz';
+    const cat=idx===0?`<td class="lh" rowspan="10" style="writing-mode:vertical-rl;text-align:center;width:18px">기분</td>`:'';
+    const cells=dates.map(ds=>{const r=recs[ds];return `<td>${r?.mood===sc?'<span class="tvc">v</span>':''}</td>`;}).join('');
+    tbody+=`<tr class="${rc}">${cat}<td class="lh">${SNAME[k]}</td>${cells}</tr>`;
+  });
+  tbody+=`<tr><td class="lh" colspan="2">혼재상태</td>${dates.map(ds=>`<td>${recs[ds]?.mixed?'<span class="tvc">v</span>':''}</td>`).join('')}</tr>`;
+  [['fear','두려움'],['anger','짜증/분노'],['interest','의욕'],['activity','활동량'],['thoughtSpeed','생각속도'],['thoughtContent','생각내용']].forEach(([f,l])=>{
+    tbody+=`<tr><td class="lh" colspan="2">${l}</td>${dates.map(ds=>{const r=recs[ds];const v=r?.[f];return `<td>${v!==undefined&&v!==0?(v>0?'+':'')+v:''}</td>`;}).join('')}</tr>`;
+  });
+  tbody+=`<tr><td class="lh" colspan="2">수면(h)</td>${dates.map(ds=>`<td>${recs[ds]?.sleepHours||''}</td>`).join('')}</tr>`;
+  tbody+=`<tr><td class="lh" colspan="2">음주(잔)</td>${dates.map(ds=>`<td>${recs[ds]?.drink||''}</td>`).join('')}</tr>`;
+  [['exercise','운동'],['binge','폭식'],['cry','울음'],['panic','공황']].forEach(([f,l])=>{
+    tbody+=`<tr><td class="lh" colspan="2">${l}</td>${dates.map(ds=>`<td>${recs[ds]?.[f]?'v':''}</td>`).join('')}</tr>`;
+  });
+  const thead=`<tr><th class="lh" colspan="2">항목</th>${dates.map(ds=>{const d=new Date(ds+'T00:00:00');return `<th>${DAYS[d.getDay()]}<br>${d.getDate()}</th>`;}).join('')}</tr>`;
+  wrap.innerHTML=`<table class="mood-tbl"><thead>${thead}</thead><tbody>${tbody}</tbody></table>`;
+}
+
+document.addEventListener('keydown',e=>{if(e.key==='Enter'){if($('loginForm').style.display!=='none')doLogin();else doRegister();}});
+</script>
+</body>
+</html>
